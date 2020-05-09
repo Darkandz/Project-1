@@ -1,0 +1,114 @@
+---
+title: "Reproducible Research: Peer Assessment 1"
+author: "Yalun"
+date: "5/7/2020"
+output: html_document
+keep_md: true
+---
+
+
+## Loading and preprocessing the data
+```{r}
+activity <- read.csv("activity.csv", stringsAsFactors = FALSE)
+
+activity.comp <- activity[complete.cases(activity),]
+activity.steps <- activity.comp[,1:2]
+
+result.sum <- aggregate(activity.steps$steps,
+                    by=list(activity.steps$date),
+                    FUN=sum)
+result.sum$Group.1 <- as.Date(result.sum$Group.1)
+```
+
+Load 'activity' data from the csv file, then process data to show the total number of steps taken each day.
+
+## What is mean total number of steps taken per day?
+
+```{r fig.cap="Histogram/barplot of the total nuber of steps taken each day"}
+library(ggplot2)
+library(gridExtra)
+p1 <- qplot(result.sum$x,geom="histogram",xlab="steps",ylab="frequency",bins=20)
+p2 <- ggplot(result.sum, aes(Group.1,x))+geom_col()+ylab("steps")+xlab("date")
+grid.arrange(p1,p2, nrow = 2)
+
+```
+### Calculate mean and median:
+
+```{r}
+summary(result.sum$x)
+```
+Therefore mean is 10766 and median is 10765 steps taken per day
+
+## What is the average daily activity pattern?
+```{r}
+result.average <- aggregate(activity.comp$steps,
+                        by=list(activity.comp$interval),
+                        FUN=mean)
+ggplot(result.average, aes(Group.1,x))+geom_line()+ylab("averaged steps")+xlab("interval")
+```
+```{r}
+step.max <- which.max(result.average$x)
+result.average[step.max,]
+```
+Therefore, the '835' interval contains the maximum number of steps.
+
+
+## Imputing missing values
+
+Total number of missing days:
+```{r}
+sum(is.na(activity))
+```
+Filling missing values in the datasheet:
+
+```{r}
+library(tidyr)
+for (i in 1:nrow(activity)){
+        if (is.na(activity[i,1])==TRUE){
+                thatinterval=activity[i,3]
+                thatmean=result.average[match(thatinterval,result.average$Group.1),2]
+                activity[i,1]=replace_na(NA,thatmean)
+        }
+}
+head(activity)
+```
+
+Histogram of the filled datasheet:
+```{r}
+result.sum2 <- aggregate(activity$steps,
+                        by=list(activity$date),
+                        FUN=sum)
+
+result.sum2$Group.1 <- as.Date(result.sum2$Group.1)
+
+p3 <- qplot(result.sum2$x,geom="histogram",xlab="steps",ylab="frequency",bins=20)
+p4 <- ggplot(result.sum2, aes(Group.1,x))+geom_col()+ylab("steps")+xlab("date")
+grid.arrange(p3,p4, nrow = 2)
+```
+The mean and median total number of steps taken per day:
+```{r}
+summary(result.sum2$x)
+```
+The filling the datasheet with averaged data barely changes the mean and median.
+
+
+## Are there differences in activity patterns between weekdays and weekends?
+```{r message=FALSE}
+library(dplyr)
+activity <- mutate(activity,week=weekdays(as.Date(activity$date)))
+activity.weekday <- subset(activity, week=="Monday"|week=="Tuesday"|week=="Wednesday"|week=="Thursday"|week=="Friday")
+activity.weekend <- subset(activity, week=="Saturday"|week=="Sunday")
+
+weekday.average <- aggregate(activity.weekday$steps,
+                            by=list(activity.weekday$interval),
+                            FUN=mean)
+weekend.average <- aggregate(activity.weekend$steps,
+                             by=list(activity.weekend$interval),
+                             FUN=mean)
+
+p5<- ggplot(weekday.average, aes(Group.1,x))+geom_line()+ylab("weekday steps")+xlab("interval")
+p6<- ggplot(weekend.average, aes(Group.1,x))+geom_line()+ylab("weekend steps")+xlab("interval")
+grid.arrange(p5,p6, nrow = 2)
+```
+
+There seems to be more steps on weekends than on weekdays
